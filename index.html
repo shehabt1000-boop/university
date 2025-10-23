@@ -93,8 +93,8 @@
       flex: 1; padding: 12px 8px; overflow-y: auto; display: flex; flex-direction: column;
       gap: 1px; background-color: transparent;
       
-      /* --- إصلاح 2: هذا السطر يعكس اتجاه الشات --- */
-      margin-top: auto;
+      /* --- إصلاح: تم إلغاء السطر الذي يسبب الاهتزاز --- */
+      /* margin-top: auto; */
     }
     .load-more-container {
         display: flex;
@@ -686,11 +686,14 @@
 
         let isInitialMessagesLoad = true;
         const messagesQuery = query(messagesCollection, orderBy("createdAt"), limitToLast(50));
+        
+        // --- إصلاح: استبدال لوجيك التمرير بالكامل ---
         const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
             const messagesEl = pageCache.chat.querySelector('.messages');
             if (!messagesEl) return; 
 
             const welcome = messagesEl.querySelector('.welcome-message');
+            // حساب وضع التمرير *قبل* إضافة أي رسائل
             const isScrolledUp = messagesEl.scrollHeight - messagesEl.clientHeight > messagesEl.scrollTop + 150;
 
             if (!snapshot.empty && !messagesEl.querySelector('.load-more-btn')) {
@@ -724,15 +727,24 @@
                 if (change.type === "removed" && msgEl) msgEl.remove();
             });
 
-            if (newMessagesAdded) {
-                if (isInitialMessagesLoad || !isScrolledUp) {
+            // دالة التمرير الجديدة
+            const scrollToBottom = () => {
+                // نستخدم setTimeout(0) لضمان أن الكود سيعمل *بعد* أن يقوم المتصفح برسم الرسالة الجديدة
+                setTimeout(() => {
                     messagesEl.scrollTop = messagesEl.scrollHeight;
+                }, 0);
+            };
+
+            if (newMessagesAdded) {
+                // إذا كان التحميل الأولي، أو المستخدم بالأسفل، قم بالتمرير
+                if (isInitialMessagesLoad || !isScrolledUp) {
+                    scrollToBottom();
                 }
+            } else if (isInitialMessagesLoad) {
+                // إذا كان التحميل الأولي ولا توجد رسائل جديدة (فارغ)، مرر للأسفل أيضاً
+                scrollToBottom();
             }
-            // --- إصلاح 2: تأكد من التمرير للأسفل حتى لو لا توجد رسائل جديدة (عند التحميل الأولي)
-            if (isInitialMessagesLoad) {
-                 messagesEl.scrollTop = messagesEl.scrollHeight;
-            }
+            
             isInitialMessagesLoad = false; 
 
         }, (error) => {
